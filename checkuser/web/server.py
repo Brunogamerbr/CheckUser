@@ -1,8 +1,11 @@
 import socket
+import resource
 
 from threading import Thread
 from .utils import ThreadPool
 from ..utils import logger
+
+resource.setrlimit(resource.RLIMIT_NOFILE, (65536, 65536))
 
 
 class Server:
