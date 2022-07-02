@@ -16,11 +16,20 @@ class CheckerUserManager:
     def get_expiration_date(self) -> t.Optional[str]:
         try:
             chage = subprocess.Popen(
-                ('chage', '-l', self.username), stdout=subprocess.PIPE)
+                ('chage', '-l', self.username),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
             grep = subprocess.Popen(
-                ('grep', 'Account expires'), stdin=chage.stdout, stdout=subprocess.PIPE)
+                ('grep', 'Account expires'),
+                stdin=chage.stdout,
+                stdout=subprocess.PIPE
+            )
             cut = subprocess.Popen(
-                'cut -d : -f2'.split(), stdin=grep.stdout, stdout=subprocess.PIPE)
+                'cut -d : -f2'.split(),
+                stdin=grep.stdout,
+                stdout=subprocess.PIPE
+            )
             output = cut.communicate()[0].strip().decode()
 
             if not output or output == 'never':
@@ -48,7 +57,7 @@ class CheckerUserManager:
         return count
 
     def get_time_online(self) -> t.Optional[str]:
-        command = 'ps -u %s -o etime --no-headers' % self.username
+        command = 'ps -u %s -o etime --no-headers 2>/dev/null' % self.username
         result = os.popen(command).readlines()
         return result[0].strip() if result else None
 
@@ -104,3 +113,4 @@ def kill_user(username: str) -> dict:
     except Exception as e:
         result['success'] = False
         result['error'] = str(e)
+        return result

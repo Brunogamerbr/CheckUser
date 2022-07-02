@@ -93,6 +93,9 @@ class OpenVPNManager:
         return count if count > -1 else self.count_connection_from_log(username)
 
     def kill_connection(self, username: str) -> None:
-        soc = self.create_connection()
-        soc.send(b'kill %s\n' % username.encode())
-        soc.close()
+        try:
+            soc = self.create_connection()
+            soc.send(b'kill %s\n' % username.encode())
+            soc.close()
+        except Exception:
+            pass

@@ -85,10 +85,11 @@ class WorkerThread(threading.Thread):
                 response_data += json.dumps(self.parse_request(data), indent=4)
 
                 client.send(response_data.encode('utf-8'))
-                client.close()
-
             except Exception as e:
                 pass
+
+            finally:
+                client.close()
 
     def stop(self):
         self.is_running = False
