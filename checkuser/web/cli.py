@@ -32,23 +32,11 @@ base_cli.add_argument(
     help='Server use thread',
 )
 
-base_cli.add_argument(
-    '--daemon',
-    action='store_true',
-    help='Daemonize',
-)
-
 
 def args_handler(args):
     if args.start_server:
         if args.server_port is None:
             args.server_port = Config().port
-
-        if args.daemon:
-            try:
-                __import__('daemon').DaemonContext().open()
-            except ImportError:
-                logger.warning('Missing library: pip3 install python-daemon')
 
         server = ServerManager(
             args.server_host,
