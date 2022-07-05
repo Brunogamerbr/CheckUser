@@ -8,7 +8,7 @@ from checkuser.web import Server, ServerManager
 
 from checkuser.utils import base_cli
 
-__version__ = '2.2.2'
+__version__ = '2.2.3'
 __author__ = 'Glemison C. Dutra'
 __email__ = 'glemyson20@gmail.com'
 
