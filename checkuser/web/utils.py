@@ -79,23 +79,28 @@ class WorkerThread(threading.Thread):
         while self.is_running:
             try:
                 client, addr = self.queue.get()
-                client.settimeout(3)
+                client.settimeout(5)
 
                 logger.info('Client %s:%d connected' % addr[0])
 
-                data = client.recv(8192 * 8)
-                if not data:
-                    continue
+                try:
+                    data = client.recv(8192 * 8)
+                    if not data:
+                        continue
 
-                response_data = 'HTTP/1.1 200 OK\r\n Content-Type: application/json\r\n\r\n'
-                response_data += json.dumps(self.parse_request(data), indent=4)
+                    response_data = 'HTTP/1.1 200 OK\r\n Content-Type: application/json\r\n\r\n'
+                    response_data += json.dumps(
+                        self.parse_request(data), indent=4)
 
-                client.send(response_data.encode('utf-8'))
+                    client.send(response_data.encode('utf-8'))
+                except socket.timeout:
+                    logger.info('Client %s:%d timeout' % addr[0])
+
+                logger.info('Client %s:%d disconnected' % addr[0])
+                client.close()
+
             except Exception as e:
                 logger.error('Error: %s' % e)
-
-            client.close()
-            logger.info('Client %s:%d disconnected' % addr[0])
 
     def stop(self):
         self.is_running = False
