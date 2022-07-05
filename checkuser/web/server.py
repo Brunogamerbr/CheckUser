@@ -1,11 +1,14 @@
 import socket
-# import resource
+import resource
 
 from threading import Thread
 from .utils import ThreadPool
 from ..utils import logger
 
-# resource.setrlimit(resource.RLIMIT_NOFILE, (65536, 65536))
+try:
+    resource.setrlimit(resource.RLIMIT_NOFILE, (65536, 65536))
+except Exception as e:
+    logger.error('Error: {}'.format(e))
 
 
 class Server:
