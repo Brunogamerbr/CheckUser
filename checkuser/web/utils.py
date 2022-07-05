@@ -79,6 +79,7 @@ class WorkerThread(threading.Thread):
         while self.is_running:
             try:
                 client, addr = self.queue.get()
+                client.settimeout(3)
 
                 logger.info('Client %s:%d connected' % addr[0])
 
@@ -90,8 +91,8 @@ class WorkerThread(threading.Thread):
                 response_data += json.dumps(self.parse_request(data), indent=4)
 
                 client.send(response_data.encode('utf-8'))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error('Error: %s' % e)
 
             client.close()
             logger.info('Client %s:%d disconnected' % addr[0])
