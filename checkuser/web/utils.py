@@ -68,6 +68,9 @@ class WorkerThread(threading.Thread):
         request = ParserServerRequest(data.strip())
         request.parse()
 
+        if not request.command or not request.content:
+            return {'error': 'Invalid request'}
+
         function_executor = FunctionExecutor(request.command, request.content)
         return function_executor.execute()
 
@@ -77,6 +80,8 @@ class WorkerThread(threading.Thread):
             try:
                 client, addr = self.queue.get()
 
+                logger.info('Client %s:%d connected' % addr[0])
+
                 data = client.recv(8192 * 8)
                 if not data:
                     continue
@@ -85,11 +90,11 @@ class WorkerThread(threading.Thread):
                 response_data += json.dumps(self.parse_request(data), indent=4)
 
                 client.send(response_data.encode('utf-8'))
-            except Exception as e:
+            except Exception:
                 pass
 
-            finally:
-                client.close()
+            client.close()
+            logger.info('Client %s:%d disconnected' % addr[0])
 
     def stop(self):
         self.is_running = False
