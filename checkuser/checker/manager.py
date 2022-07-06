@@ -77,6 +77,19 @@ class CheckerUserManager:
         self.ssh_manager.kill_connection(self.username)
         self.openvpn_manager.kill_connection(self.username)
 
+    @staticmethod
+    def count_all_connections() -> int:
+        ssh_manager = SSHManager()
+        openvpn_manager = OpenVPNManager()
+
+        count = 0
+
+        if openvpn_manager.openvpn_is_running():
+            count += openvpn_manager.count_all_connections()
+
+        count += ssh_manager.count_all_connections()
+        return count
+
 
 def check_user(username: str) -> t.Dict[str, t.Any]:
     try:
@@ -114,3 +127,18 @@ def kill_user(username: str) -> dict:
         result['success'] = False
         result['error'] = str(e)
         return result
+
+
+def count_all_connections() -> dict:
+    result = {
+        'count': 0,
+        'success': True,
+    }
+
+    try:
+        result['count'] = CheckerUserManager.count_all_connections()
+    except Exception as e:
+        result['success'] = False
+        result['error'] = str(e)
+
+    return result

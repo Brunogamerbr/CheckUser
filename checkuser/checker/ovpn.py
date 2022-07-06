@@ -99,3 +99,17 @@ class OpenVPNManager:
             soc.close()
         except Exception:
             pass
+
+    def count_all_connections(self) -> int:
+        list_of_users = []
+
+        for line in open('/etc/passwd'):
+            split = line.split(':')
+
+            user_id = int(split[2])
+            username = split[0]
+
+            if user_id >= 1000 and username != 'root':
+                list_of_users.append(username)
+
+        return sum([self.count_connections(username) for username in list_of_users])

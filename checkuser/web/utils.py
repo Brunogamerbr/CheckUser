@@ -6,8 +6,81 @@ import threading
 
 from checkuser.utils import logger
 
-from ..checker import check_user, kill_user
+from ..checker import check_user, kill_user, count_all_connections
 from ..utils.config import Config
+
+
+class Command:
+    def execute(self) -> dict:
+        raise NotImplementedError('This method must be implemented')
+
+
+class CheckUserCommand(Command):
+    def __init__(self, content: str) -> None:
+        if not content:
+            raise ValueError('User name is required')
+
+        self.content = content
+
+    def execute(self) -> dict:
+        data = check_user(self.content)
+
+        for exclude in Config().exclude:
+            if exclude in data:
+                logger.debug(f'Exclude: {exclude}')
+                del data[exclude]
+
+        return data
+
+
+class KillUserCommand(Command):
+    def __init__(self, content: str) -> None:
+        if not content:
+            raise ValueError('User name is required')
+
+        self.content = content
+
+    def execute(self) -> dict:
+        return kill_user(self.content)
+
+
+class AllConnectionsCommand(Command):
+    def __init__(self, *_):
+        pass
+
+    def execute(self) -> dict:
+        return count_all_connections()
+
+
+class CommandHandler:
+    def __init__(self) -> None:
+        self.commands = {
+            'check': CheckUserCommand,
+            'kill_user': KillUserCommand,
+            'all_connections': AllConnectionsCommand,
+        }
+
+    def handle(self, command: str, content: str) -> dict:
+        try:
+            command_class = self.commands[command]
+            command = command_class(content)
+            return command.execute()
+        except KeyError:
+            raise ValueError('Unknown command')
+
+
+class FunctionExecutor:
+    __command_handler = CommandHandler()
+
+    def __init__(self, command: str, content: str):
+        self.command = command
+        self.content = content
+
+    def execute(self) -> t.Dict[str, t.Any]:
+        try:
+            return self.__command_handler.handle(self.command, self.content)
+        except Exception as e:
+            return {'error': str(e)}
 
 
 class ParserServerRequest:
@@ -15,8 +88,6 @@ class ParserServerRequest:
         self.data = data
         self.command = None
         self.content = None
-
-        self.commands_allowed = ['CHECK' 'KILL']
 
     def parse(self) -> None:
         try:
@@ -26,33 +97,15 @@ class ParserServerRequest:
             path = first_line.split(' ')[1]
 
             self.command = path.split('/')[1]
-            self.content = path.split('/')[2].split('?')[0]
 
-        except Exception:
+            if len(path.split('/')) > 2:
+                self.content = path.split('/')[2].split('?')[0]
+
+        except Exception as e:
+            logger.exception(e)
+
             self.command = None
             self.content = None
-
-
-class FunctionExecutor:
-    def __init__(self, command: str, content: str):
-        self.command = command
-        self.content = content
-
-    def execute(self) -> t.Dict[str, t.Any]:
-        if self.command.upper() == 'CHECK':
-            data = check_user(self.content)
-
-            for exclude in Config().exclude:
-                if exclude in data:
-                    logger.debug(f'Exclude: {exclude}')
-                    del data[exclude]
-
-            return data
-
-        if self.command.upper() == 'KILL':
-            return kill_user(self.content)
-
-        return {'error': 'Command not allowed'}
 
 
 class WorkerThread(threading.Thread):
@@ -67,9 +120,6 @@ class WorkerThread(threading.Thread):
     def parse_request(self, data: bytes) -> t.Dict[str, t.Any]:
         request = ParserServerRequest(data.strip())
         request.parse()
-
-        if not request.command or not request.content:
-            return {'error': 'Invalid request'}
 
         function_executor = FunctionExecutor(request.command, request.content)
         return function_executor.execute()

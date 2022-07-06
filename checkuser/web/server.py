@@ -29,7 +29,7 @@ class Server:
 
     def run(self) -> None:
         self.socket.bind((self.host, self.port))
-        self.socket.listen(0)
+        self.socket.listen(512)
         self.is_running = True
 
         logger.info(f'Server is running on {self.host}:{self.port}')
