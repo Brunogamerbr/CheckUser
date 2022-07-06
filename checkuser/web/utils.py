@@ -138,7 +138,12 @@ class WorkerThread(threading.Thread):
                     if not data:
                         continue
 
-                    response_data = 'HTTP/1.1 200 OK\r\n Content-Type: application/json\r\n\r\n'
+                    response_data = 'HTTP/1.1 200 OK\r\n Content-Type: application/json\r\n'
+                    response_data += 'Access-Control-Allow-Origin: *\r\n'
+                    response_data += 'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n'
+                    response_data += 'Access-Control-Allow-Headers: Origin, Content-Type, Accept\r\n'
+                    response_data += '\r\n'
+
                     response_data += json.dumps(
                         self.parse_request(data), indent=4)
 
