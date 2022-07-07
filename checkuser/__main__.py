@@ -7,6 +7,10 @@ import checkuser.web.cli as web_cli
 from checkuser.utils.config import args_handler as config_args_handler
 from checkuser.utils import base_cli
 
+if sys.version_info < (3, 6):
+    print('Python 3.6 or higher is required.')
+    sys.exit(1)
+
 
 def args_handler(args):
     config_args_handler(args)

@@ -1,5 +1,5 @@
 from ..utils import base_cli, logger, Config
-from ..web import ServerManager
+from ..web import Server
 
 base_cli.add_argument(
     '--start-server',
@@ -27,12 +27,6 @@ base_cli.add_argument(
 )
 
 base_cli.add_argument(
-    '--server-use-thread',
-    action='store_true',
-    help='Server use thread',
-)
-
-base_cli.add_argument(
     '--daemon',
     action='store_true',
     help='Daemonize',
@@ -50,10 +44,9 @@ def args_handler(args):
             except ImportError:
                 logger.warning('Missing library: pip3 install python-daemon')
 
-        server = ServerManager(
+        server = Server(
             args.server_host,
             args.server_port,
-            args.server_num_workers,
-            args.server_use_thread,
+            args.server_num_workers
         )
         server.start()

@@ -1,73 +1,55 @@
 import socket
 import resource
+import asyncio
 
-from threading import Thread
-from .utils import ThreadPool
+from .async_worker import Worker
 from ..utils import logger
+
 
 try:
     resource.setrlimit(resource.RLIMIT_NOFILE, (65536, 65536))
 except Exception as e:
+    from ..utils.logger import logger
     logger.error('Error: {}'.format(e))
 
 
 class Server:
-    def __init__(self, host: str, port: int, num_workers: int = 10):
+    def __init__(self, host: str, port: int, workers: int = 10):
         self.host = host
         self.port = port
+        self.workers = workers
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        self.pool = ThreadPool(num_workers)
-        self.pool.start()
+        self.loop = asyncio.get_event_loop()
+        self.worker = Worker(workers)
 
-        self.is_running = False
-
-    def handle(self, client, addr) -> None:
-        self.pool.add_task(client, addr)
-
-    def run(self) -> None:
+    async def _start(self):
         self.socket.bind((self.host, self.port))
         self.socket.listen(512)
-        self.is_running = True
+        self.socket.setblocking(False)
 
-        logger.info(f'Server is running on {self.host}:{self.port}')
+        logger.info(f'Listening on {self.host}:{self.port}')
 
+        while True:
+            await asyncio.sleep(0.1)
+
+            client, addr = await self.loop.sock_accept(self.socket)
+            client.settimeout(5)
+
+            await self.worker.queue.put((client, addr))
+
+    def start(self):
         try:
-            while self.is_running:
-                client, addr = self.socket.accept()
-                self.handle(client, addr)
-
+            self.loop.create_task(self.worker.start())
+            self.loop.create_task(self._start())
+            self.loop.run_forever()
         except KeyboardInterrupt:
             pass
 
         finally:
-            self.stop()
+            logger.info('Closing server')
 
-    def stop(self) -> None:
-        self.is_running = False
-        if self.socket:
             self.socket.close()
-
-
-class ServerManager:
-    def __init__(self, host: str, port: int, num_workers: int = 10, use_thread: bool = True):
-        self.host = host
-        self.port = port
-        self.num_workers = num_workers
-        self.use_thread = use_thread
-
-        self.server = Server(self.host, self.port, self.num_workers)
-        self.thread = Thread(target=self.server.run)
-
-    @property
-    def is_running(self) -> bool:
-        return self.server.is_running
-
-    def start(self) -> None:
-        if self.use_thread:
-            self.thread.start()
-            return
-
-        self.server.run()
+            self.worker.stop()
