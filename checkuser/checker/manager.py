@@ -63,15 +63,27 @@ class CheckerUserManager:
 
     def get_limiter_connection(self) -> int:
         path = '/root/usuarios.db'
+        limit_connections = -1
 
-        if os.path.exists(path):
-            with open(path) as f:
-                for line in f:
-                    split = line.strip().split()
-                    if len(split) == 2 and split[0] == self.username:
-                        return int(split[1].strip())
+        try:
+            if os.path.exists(path):
+                with open(path) as f:
+                    for line in f:
+                        split = line.strip().split()
+                        if len(split) == 2 and split[0] == self.username:
+                            limit_connections = int(split[1])
+                            break
 
-        return -1
+            if os.system('command -v vps') == 0:
+                data = os.popen('vps -u %s -s' % self.username).read().strip()
+
+                if data != 'User not found':
+                    limit_connections = int(
+                        data.split('Limit connections:')
+                        [1].split()[0].strip()
+                    )
+        finally:
+            return limit_connections
 
     def kill_connection(self) -> None:
         self.ssh_manager.kill_connection(self.username)
