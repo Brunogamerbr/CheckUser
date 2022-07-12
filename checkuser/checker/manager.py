@@ -74,8 +74,9 @@ class CheckerUserManager:
                             limit_connections = int(split[1])
                             break
 
-            if os.system('command -v vps') == 0:
-                data = os.popen('vps -u %s -s' % self.username).read().strip()
+            if os.system('command -v vps-cli') == 0:
+                data = os.popen('vps-cli -u %s -s' %
+                                self.username).read().strip()
 
                 if data != 'User not found':
                     limit_connections = int(
