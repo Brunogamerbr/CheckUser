@@ -1,10 +1,18 @@
-from ..utils import base_cli, logger, Config
+from ..utils import base_cli, Config
+from ..utils.daemon import Daemon
+
 from ..web import Server
 
 base_cli.add_argument(
-    '--start-server',
+    '--start',
     action='store_true',
     help='Start server',
+)
+
+base_cli.add_argument(
+    '--stop',
+    action='store_true',
+    help='Stop server',
 )
 
 base_cli.add_argument(
@@ -21,7 +29,7 @@ base_cli.add_argument(
 
 base_cli.add_argument(
     '--server-num-workers',
-    default=5,
+    default=3,
     type=int,
     help='Server number of workers',
 )
@@ -34,19 +42,25 @@ base_cli.add_argument(
 
 
 def args_handler(args):
-    if args.start_server:
+    class ServerDaemon(Daemon):
+        def run(self):
+            server = Server(
+                host=args.server_host,
+                port=args.server_port,
+                workers=args.server_num_workers,
+            )
+            server.start()
+
+    daemon = ServerDaemon(pidfile='/tmp/server.pid')
+
+    if args.start:
         if args.server_port is None:
             args.server_port = Config().port
 
         if args.daemon:
-            try:
-                __import__('daemon').DaemonContext().open()
-            except ImportError:
-                logger.warning('Missing library: pip3 install python-daemon')
+            daemon.start()
+        else:
+            daemon.run()
 
-        server = Server(
-            args.server_host,
-            args.server_port,
-            args.server_num_workers
-        )
-        server.start()
+    if args.stop:
+        daemon.stop()

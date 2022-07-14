@@ -1,7 +1,6 @@
 import sys
 
 import checkuser.checker.cli as check_user_cli
-import checkuser.service.cli as service_cli
 import checkuser.web.cli as web_cli
 
 from checkuser.utils.config import args_handler as config_args_handler
@@ -15,7 +14,6 @@ if sys.version_info < (3, 6):
 def args_handler(args):
     config_args_handler(args)
     check_user_cli.args_handler(args)
-    service_cli.args_handler(args)
     web_cli.args_handler(args)
 
 

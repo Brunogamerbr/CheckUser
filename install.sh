@@ -8,12 +8,12 @@ if ! [ -x "$(command -v git)" ]; then
 
     sudo apt-get install git -y 1>/dev/null 2>/dev/null
 
-    echo 'Git instalado com sucesso.'
-
     if ! [ -x "$(command -v git)" ]; then
         echo 'Erro: git nao esta instalado.' >&2
         exit 1
     fi
+
+    echo 'Git instalado com sucesso.'
 fi
 
 function install_checkuser() {
@@ -31,8 +31,7 @@ function install_checkuser() {
 
     clear
     read -p 'Porta: ' -e -i 5000 port
-    checkuser --config-port $port --create-service
-    service check_user start
+    checkuser --config-port $port --start --daemon
 
     echo 'CheckUser instalado com sucesso.'
     echo 'Execute: checkuser --help'
@@ -40,26 +39,10 @@ function install_checkuser() {
     read
 }
 
-function check_update() {
-    if ! [ -d CheckUser ]; then
-        echo 'CheckUser nao esta instalado.'
-        return 1
-    fi
-
-    echo 'Verificando atualizacoes...'
-    cd CheckUser
-
-    git fetch --all
-    git reset --hard origin/master
-    git pull origin master
-
-    python3 setup.py install
-    echo 'CheckUser atualizado com sucesso.'
-    read
-}
-
 function uninstall_checkuser() {
     echo 'Desinstalando CheckUser...'
+
+    checkuser --stop
 
     [[ -d CheckUser ]] && rm -rf CheckUser
 
@@ -76,12 +59,17 @@ function uninstall_checkuser() {
     }
 }
 
+function reinstall_checkuser() {
+    uninstall_checkuser
+    install_checkuser
+}
+
 function console_menu() {
     clear
     echo 'CHECKUSER MENU'
     echo '[01] - Instalar CheckUser'
-    echo '[02] - Atualizar CheckUser'
-    echo '[03] - Desinstalar CheckUser'
+    echo '[02] - Desinstalar CheckUser'
+    echo '[03] - Reinstalar CheckUser'
     echo '[00] - Sair'
 
     read -p 'Escolha uma opção: ' option
@@ -92,11 +80,11 @@ function console_menu() {
         console_menu
         ;;
     02 | 2)
-        check_update
+        uninstall_checkuser
         console_menu
         ;;
     03 | 3)
-        uninstall_checkuser
+        reinstall_checkuser
         console_menu
         ;;
     00 | 0)

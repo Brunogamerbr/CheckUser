@@ -10,7 +10,7 @@ apt-get update && apt-get install git -y
 python3 -m pip install git+https://github.com/DuTra01/CheckUser.git
 ```
 ```
-checkuser --create-service --config-port 5000 --start
+checkuser --config-port 5000 --start --daemon
 ```
 
 ### Ou

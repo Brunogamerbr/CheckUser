@@ -4,7 +4,6 @@ import json
 
 from typing import Tuple
 
-from ..utils import logger
 from .utils import HttpParser
 from .command_handler import CommandHandler
 
@@ -21,16 +20,14 @@ class Worker:
 
     async def _worker(self):
         while True:
-            client, addr = await self.queue.get()
+            client, _ = await self.queue.get()
 
             try:
-                logger.info('Client %s:%d connected' % addr)
                 await self.handle(client)
-            except Exception as e:
-                logger.error(f'Error: {e}')
-            finally:
-                logger.info('Client %s:%d disconnected' % addr)
-                client.close()
+            except:
+                pass
+
+            client.close()
 
     async def handle(self, item: socket.socket):
         data = await self.loop.sock_recv(item, 1024)
@@ -53,9 +50,6 @@ class Worker:
 
         command = split[1]
         content = split[2].split('?')[0] if len(split) > 2 else None
-
-        logger.info(f'Command: {command}')
-        logger.info(f'Content: {content}')
 
         try:
             response = json.dumps(
