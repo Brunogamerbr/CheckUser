@@ -52,12 +52,8 @@ class Worker:
         content = split[2].split('?')[0] if len(split) > 2 else None
 
         try:
-            response = json.dumps(
-                await self.command_handler.handle(
-                    command, content
-                ),
-                indent=4,
-            )
+            response = await asyncio.ensure_future(self.command_handler.handle(command, content))
+            response = json.dumps(response, indent=4)
             response = HttpParser.build_response(
                 status=200,
                 headers={'Content-Type': 'Application/json'},
