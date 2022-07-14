@@ -53,7 +53,7 @@ class Worker:
 
         try:
             response = json.dumps(
-                self.command_handler.handle(
+                await self.command_handler.handle(
                     command, content
                 ),
                 indent=4,

@@ -1,3 +1,5 @@
+import asyncio
+
 from checkuser.utils import logger
 
 from ..checker import check_user, kill_user, count_all_connections
@@ -54,10 +56,12 @@ class CommandHandler:
             'all_connections': AllConnectionsCommand,
         }
 
-    def handle(self, command: str, content: str) -> dict:
+    async def handle(self, command: str, content: str) -> dict:
         try:
             command_class = self.commands[command]
             command = command_class(content)
-            return command.execute()
+
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, command.execute)
         except KeyError:
             raise ValueError('Unknown command')
