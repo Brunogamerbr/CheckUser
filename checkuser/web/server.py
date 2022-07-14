@@ -33,10 +33,8 @@ class Server:
         logger.info(f'Listening on {self.host}:{self.port}')
 
         while True:
-            await asyncio.sleep(0.1)
-
             client, addr = await self.loop.sock_accept(self.socket)
-            client.settimeout(5)
+            client.setblocking(False)
 
             await self.worker.queue.put((client, addr))
 
