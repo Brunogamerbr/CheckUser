@@ -127,15 +127,12 @@ class OpenVPNManager:
 
         stdout, stderr = await result.communicate()
 
-        return (
-            [
-                line.split(':')[0]
-                for line in stdout.decode().splitlines()
-                if int(line.split(':')[2]) >= 1000
-            ]
-            if not stderr.decode()
-            else []
-        )
+        if stderr.decode():
+            return []
+
+        data = stdout.decode().splitlines()
+        data = list(filter(lambda x: int(x.split(':')[2]) >= 1000, data))
+        return [line.split(':')[0] for line in data]
 
     async def count_all_connections(self) -> int:
         list_of_users = await self.get_all_users()

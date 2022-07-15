@@ -12,7 +12,7 @@ from .ssh import SSHManager
 class CheckerUserManager:
     def __init__(self, username: str):
         self.username = username
-        self.ssh_manager = SSHManager(username)
+        self.ssh_manager = SSHManager()
         self.openvpn_manager = OpenVPNManager()
 
     async def get_expiration_date(self) -> t.Optional[str]:
@@ -56,9 +56,8 @@ class CheckerUserManager:
         if await self.openvpn_manager.openvpn_is_running():
             count += await self.openvpn_manager.count_connections(self.username)
 
-        # await self.ssh_manager.get_pids()
+        count += await self.ssh_manager.count_connections(self.username)
 
-        count += await self.ssh_manager.count_connections()
         return count
 
     async def get_time_online(self) -> t.Optional[str]:

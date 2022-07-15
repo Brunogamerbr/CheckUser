@@ -6,14 +6,8 @@ import asyncio
 
 
 class SSHManager:
-    def __init__(self, username: str) -> None:
-        self.username = username
-
-        self.list_of_pid = []
-        self.loop = asyncio.get_event_loop()
-
-    async def count_connections(self) -> int:
-        command = 'ps -u {}'.format(self.username)
+    async def count_connections(self, username: str) -> int:
+        command = 'ps -u {}'.format(username)
         result = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
@@ -86,39 +80,13 @@ class SSHManager:
 
         stdout, stderr = await result.communicate()
 
-        return (
-            [
-                line.split(':')[0]
-                for line in stdout.decode().splitlines()
-                if int(line.split(':')[2]) >= 1000
-            ]
-            if not stderr.decode()
-            else []
-        )
+        if stderr.decode():
+            return []
 
-    @staticmethod
-    async def count_all_connections() -> int:
-        command = 'ps -u %s'
-        count = 0
+        data = stdout.decode().splitlines()
+        data = list(filter(lambda x: int(x.split(':')[2]) >= 1000, data))
+        return [line.split(':')[0] for line in data]
 
-        for user in await SSHManager.get_all_users():
-            result = await asyncio.create_subprocess_shell(
-                command % user,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-
-            stdout, stderr = await result.communicate()
-
-            if not stderr.decode():
-                data = stdout.decode().splitlines()[1:]
-                count += len([line for line in data if 'sshd' in line])
-
-        return count
-
-
-# loop = asyncio.get_event_loop()
-
-# print(loop.run_until_complete(SSHManager.total_all_connections()))
-
-# exit()
+    async def count_all_connections(self) -> int:
+        list_of_users = await self.get_all_users()
+        return sum([await self.count_connections(username) for username in list_of_users])
