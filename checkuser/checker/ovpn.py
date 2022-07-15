@@ -14,6 +14,8 @@ class ClientProtocol(asyncio.Protocol):
     def data_received(self, data: bytes) -> None:
         self.buffer += data
 
+        print(data)
+
         if b'\r\nEND\r\n' in data:
             self.on_con_lost.set_result(True)
 
