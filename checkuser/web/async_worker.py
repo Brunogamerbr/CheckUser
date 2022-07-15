@@ -62,6 +62,7 @@ class Worker:
                 body=response,
             )
         except Exception as e:
+            logger.exception(e)
             response = HttpParser.build_response(
                 status=500,
                 headers={'Content-Type': 'Application/json'},
