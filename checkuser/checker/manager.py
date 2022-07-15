@@ -25,7 +25,7 @@ class CheckerUserManager:
 
         stdout, stderr = await result.communicate()
         return (
-            stdout.decode().split('Account expires: ')[1].split()[0].strip()
+            stdout.decode().split('Account expires:')[1].split()[0].strip()
             if not stderr.decode()
             else None
         )
