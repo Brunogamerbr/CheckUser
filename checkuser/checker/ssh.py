@@ -30,6 +30,7 @@ class SSHManager:
             return []
 
         data = stdout.decode().splitlines()[1:]
+        print(data)
         pids = [int(line.split()[1]) for line in data]
         return pids
 
