@@ -23,7 +23,7 @@ class ClientKillProtocol(asyncio.Protocol):
         self.username = username
 
     def connection_made(self, transport: asyncio.Transport) -> None:
-        transport.write(b'kill {}\n'.format(self.username.encode()))
+        transport.write(b'kill %s\n' % self.username.encode())
         transport.close()
 
 
