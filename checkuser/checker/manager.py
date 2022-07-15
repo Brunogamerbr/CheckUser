@@ -37,7 +37,10 @@ class CheckerUserManager:
                 if date == 'never':
                     return None
 
-                return datetime.strptime(date, '%b %d, %Y').strftime('%d/%m/%Y')
+                try:
+                    return datetime.strptime(date, '%b %d, %Y').strftime('%d/%m/%Y')
+                except ValueError:
+                    break
 
         return None
 
@@ -53,9 +56,9 @@ class CheckerUserManager:
         if await self.openvpn_manager.openvpn_is_running():
             count += await self.openvpn_manager.count_connections(self.username)
 
-        await self.ssh_manager.get_pids()
+        # await self.ssh_manager.get_pids()
 
-        count += self.ssh_manager.total_connections
+        count += await self.ssh_manager.count_connections()
         return count
 
     async def get_time_online(self) -> t.Optional[str]:

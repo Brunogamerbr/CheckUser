@@ -12,6 +12,22 @@ class SSHManager:
         self.list_of_pid = []
         self.loop = asyncio.get_event_loop()
 
+    async def count_connections(self) -> int:
+        command = 'ps -u {}'.format(self.username)
+        result = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        stdout, stderr = await result.communicate()
+
+        if stderr:
+            return 0
+
+        data = stdout.decode().splitlines()[1:]
+        return len(list(filter(lambda x: 'sshd' in x, data)))
+
     @property
     def total_connections(self) -> int:
         return len(self.list_of_pid)
