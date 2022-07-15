@@ -3,6 +3,8 @@ import os
 import asyncio
 
 from datetime import datetime
+
+from ..utils import logger
 from .ovpn import OpenVPNManager
 from .ssh import SSHManager
 
@@ -140,6 +142,7 @@ async def check_user(username: str) -> t.Dict[str, t.Any]:
             'time_online': time_online,
         }
     except Exception as e:
+        logger.exception(e)
         return {'error': str(e)}
 
 
