@@ -1,7 +1,4 @@
 import typing as t
-
-# import os
-
 import asyncio
 
 
@@ -21,10 +18,6 @@ class SSHManager:
 
         data = stdout.decode().splitlines()[1:]
         return len(list(filter(lambda x: 'sshd' in x, data)))
-
-    @property
-    def total_connections(self) -> int:
-        return len(self.list_of_pid)
 
     async def get_pids(self, username) -> t.List[int]:
         command = 'ps -u {}'.format(username)
