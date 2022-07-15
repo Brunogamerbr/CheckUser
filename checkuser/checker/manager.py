@@ -24,23 +24,33 @@ class CheckerUserManager:
         )
 
         stdout, stderr = await result.communicate()
-        return (
-            stdout.decode().split('Account expires:')[1].split()[0].strip()
-            if not stderr.decode()
-            else None
-        )
+
+        if stderr:
+            return None
+
+        data = stdout.decode().strip().lower().splitlines()
+
+        for line in data:
+            if line.startswith('account expires') or line.startswith('conta expira'):
+                date = line.split(':')[1].strip()
+
+                if date == 'never':
+                    return None
+
+                return datetime.strptime(date, '%b %d, %Y').strftime('%d/%m/%Y')
+
+        return None
 
     async def get_expiration_days(self, date: str) -> int:
         if not isinstance(date, str) or date.lower() == 'never':
             return -1
 
-        return (datetime.strptime(date, '%b %d, %Y') - datetime.now()).days
+        return (datetime.strptime(date, '%d/%m/%Y') - datetime.now()).days
 
     async def get_connections(self) -> int:
         count = 0
 
         if await self.openvpn_manager.openvpn_is_running():
-            # await self.openvpn_manager.start_manager()
             count += await self.openvpn_manager.count_connections(self.username)
 
         await self.ssh_manager.get_pids()

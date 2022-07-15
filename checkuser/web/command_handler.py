@@ -58,7 +58,6 @@ class CommandHandler:
 
     async def handle(self, command: str, content: str) -> dict:
         try:
-            await asyncio.sleep(2)
             command_class = self.commands[command]
             command = command_class(content)
 
