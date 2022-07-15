@@ -17,9 +17,6 @@ class ClientProtocol(asyncio.Protocol):
         if b'\r\nEND\r\n' in data:
             self.on_con_lost.set_result(True)
 
-    def connection_lost(self, exc) -> None:
-        self.on_con_lost.set_result(True)
-
 
 class ClientKillProtocol(asyncio.Protocol):
     def __init__(self, username: str, on_con_lost: asyncio.Future) -> None:
