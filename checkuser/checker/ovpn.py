@@ -19,13 +19,12 @@ class ClientProtocol(asyncio.Protocol):
 
 
 class ClientKillProtocol(asyncio.Protocol):
-    def __init__(self, username: str, on_con_lost: asyncio.Future) -> None:
+    def __init__(self, username: str) -> None:
         self.username = username
-        self.on_con_lost = on_con_lost
 
     def connection_made(self, transport: asyncio.Transport) -> None:
         transport.write(b'kill {}\n'.format(self.username.encode()))
-        self.on_con_lost.set_result(True)
+        transport.close()
 
 
 class OpenVPNManager:
@@ -104,17 +103,17 @@ class OpenVPNManager:
         return count // 2 if count > 0 else 0
 
     async def kill_connection(self, username: str) -> None:
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_event_loop()
 
-        on_con_lost = loop.create_future()
-        transport, protocol = await loop.create_connection(
-            lambda: ClientKillProtocol(username, on_con_lost),
-            'localhost',
-            self.port,
-        )
-
-        await on_con_lost
-        transport.close()
+            loop.create_future()
+            await loop.create_connection(
+                lambda: ClientKillProtocol(username),
+                'localhost',
+                self.port,
+            )
+        except:
+            pass
 
     @staticmethod
     async def get_all_users() -> t.List[str]:

@@ -26,8 +26,8 @@ class SSHManager:
     def total_connections(self) -> int:
         return len(self.list_of_pid)
 
-    async def get_pids(self) -> t.List[int]:
-        command = 'ps -u {}'.format(self.username)
+    async def get_pids(self, username) -> t.List[int]:
+        command = 'ps -u {}'.format(username)
         result = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
@@ -43,16 +43,17 @@ class SSHManager:
         pids = [int(line.split()[0]) for line in data]
         return pids
 
-    async def kill_connection(self) -> None:
-        for pid in self.list_of_pid:
+    async def kill_connection(self, username: str) -> None:
+        list_of_pids = await self.get_pids(username)
+        for pid in list_of_pids:
             command = 'kill -9 {}'.format(pid)
-            await asyncio.create_subprocess_shell(
+            result = await asyncio.create_subprocess_shell(
                 command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
 
-        self.list_of_pid = []
+            await result.communicate()
 
     async def get_expiration_date(self) -> t.Optional[str]:
         command = 'chage -l {}'.format(self.username)

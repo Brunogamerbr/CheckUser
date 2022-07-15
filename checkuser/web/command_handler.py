@@ -52,7 +52,7 @@ class CommandHandler:
     def __init__(self) -> None:
         self.commands = {
             'check': CheckUserCommand,
-            'kill_user': KillUserCommand,
+            'kill': KillUserCommand,
             'all_connections': AllConnectionsCommand,
         }
 
