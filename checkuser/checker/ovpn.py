@@ -3,30 +3,6 @@ import os
 import asyncio
 
 
-class ClientProtocol(asyncio.Protocol):
-    def __init__(self, on_con_lost: asyncio.Future) -> None:
-        self.on_con_lost = on_con_lost
-        self.buffer = b''
-
-    def connection_made(self, transport: asyncio.Transport) -> None:
-        transport.write(b'status\n')
-
-    def data_received(self, data: bytes) -> None:
-        self.buffer += data
-
-        if b'\r\nEND\r\n' in data:
-            self.on_con_lost.set_result(True)
-
-
-class ClientKillProtocol(asyncio.Protocol):
-    def __init__(self, username: str) -> None:
-        self.username = username
-
-    def connection_made(self, transport: asyncio.Transport) -> None:
-        transport.write(b'kill %s\n' % self.username.encode())
-        transport.close()
-
-
 class OpenVPNManager:
     def __init__(self, port: int = 7505):
         self.port = port
@@ -85,33 +61,31 @@ class OpenVPNManager:
             )
 
     async def count_connections(self, username: str) -> int:
-        loop = asyncio.get_event_loop()
+        try:
+            reader, writer = await asyncio.open_connection(host='localhost', port=self.port)
+            writer.write(b'status\n')
+            await writer.drain()
 
-        on_con_lost = loop.create_future()
-        transport, protocol = await loop.create_connection(
-            lambda: ClientProtocol(on_con_lost),
-            'localhost',
-            self.port,
-        )
+            buffer = b''
+            while True:
+                data = await reader.read(1024)
+                buffer += data
 
-        await on_con_lost
-        transport.close()
+                if b'\r\nEND\r\n' in data or not data:
+                    break
 
-        data = protocol.buffer
-        count = data.count(username.encode())
-
-        return count // 2 if count > 0 else 0
+            writer.close()
+            count = buffer.count(username.encode())
+            return count // 2 if count > 0 else 0
+        except:
+            return 0
 
     async def kill_connection(self, username: str) -> None:
         try:
-            loop = asyncio.get_event_loop()
-
-            loop.create_future()
-            await loop.create_connection(
-                lambda: ClientKillProtocol(username),
-                'localhost',
-                self.port,
-            )
+            _, writer = await asyncio.open_connection(host='localhost', port=self.port)
+            writer.write(b'kill %s\n' % username.encode())
+            await writer.drain()
+            writer.close()
         except:
             pass
 
