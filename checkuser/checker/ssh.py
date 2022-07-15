@@ -31,7 +31,7 @@ class SSHManager:
 
         data = stdout.decode().splitlines()[1:]
         print(data)
-        pids = [int(line.split()[1]) for line in data]
+        pids = [int(line.split()[0]) for line in data]
         return pids
 
     async def kill_connection(self) -> None:
