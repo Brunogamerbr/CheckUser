@@ -7,6 +7,8 @@ from typing import Tuple
 from .utils import HttpParser
 from .command_handler import CommandHandler
 
+from ..utils.logger import logger
+
 
 class Worker:
     def __init__(self, concurrency: int = 5) -> None:
@@ -20,17 +22,17 @@ class Worker:
 
     async def _worker(self):
         while True:
-            client, _ = await self.queue.get()
+            reader, writer = await self.queue.get()
 
             try:
-                await self.handle(client)
-            except:
-                pass
+                await self.handle(reader, writer)
+            except Exception as e:
+                logger.error(e)
 
-            client.close()
+            writer.close()
 
-    async def handle(self, item: socket.socket):
-        data = await self.loop.sock_recv(item, 1024)
+    async def handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        data = await reader.read(1024)
 
         parser = HttpParser.of(data.decode('utf-8'))
         response = json.dumps(
@@ -39,12 +41,12 @@ class Worker:
                 headers={'Content-Type': 'Application/json'},
                 body='{"error": "Forbidden"}',
             ),
-            indent=4
+            indent=4,
         )
 
         if not data or not parser.path:
-            await self.loop.sock_sendall(item, response.encode())
-            return
+            writer.write(response.encode('utf-8'))
+            await writer.drain()
 
         split = parser.path.split('/')
 
@@ -52,7 +54,7 @@ class Worker:
         content = split[2].split('?')[0] if len(split) > 2 else None
 
         try:
-            response = await asyncio.ensure_future(self.command_handler.handle(command, content))
+            response = await self.command_handler.handle(command, content)
             response = json.dumps(response, indent=4)
             response = HttpParser.build_response(
                 status=200,
@@ -66,7 +68,8 @@ class Worker:
                 body=json.dumps({'error': str(e)}, indent=4),
             )
 
-        await self.loop.sock_sendall(item, response.encode())
+        writer.write(response.encode('utf-8'))
+        await writer.drain()
 
     async def put(self, item: Tuple[socket.socket, Tuple[str, int]]):
         await self.queue.put(item)
@@ -80,5 +83,4 @@ class Worker:
         for task in self.tasks:
             task.cancel()
 
-        self.loop.create_task(self.queue.join())
         self.loop.stop()

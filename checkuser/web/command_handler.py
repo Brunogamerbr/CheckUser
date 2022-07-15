@@ -18,8 +18,8 @@ class CheckUserCommand(Command):
 
         self.content = content
 
-    def execute(self) -> dict:
-        data = check_user(self.content)
+    async def execute(self) -> dict:
+        data = await check_user(self.content)
 
         for exclude in Config().exclude:
             if exclude in data:
@@ -36,16 +36,16 @@ class KillUserCommand(Command):
 
         self.content = content
 
-    def execute(self) -> dict:
-        return kill_user(self.content)
+    async def execute(self) -> dict:
+        return await kill_user(self.content)
 
 
 class AllConnectionsCommand(Command):
     def __init__(self, *_):
         pass
 
-    def execute(self) -> dict:
-        return count_all_connections()
+    async def execute(self) -> dict:
+        return await count_all_connections()
 
 
 class CommandHandler:
@@ -58,10 +58,10 @@ class CommandHandler:
 
     async def handle(self, command: str, content: str) -> dict:
         try:
+            await asyncio.sleep(2)
             command_class = self.commands[command]
             command = command_class(content)
 
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(None, command.execute)
+            return await command.execute()
         except KeyError:
             raise ValueError('Unknown command')

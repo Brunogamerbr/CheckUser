@@ -1,4 +1,3 @@
-import socket
 import resource
 import asyncio
 
@@ -10,6 +9,7 @@ try:
     resource.setrlimit(resource.RLIMIT_NOFILE, (65536, 65536))
 except Exception as e:
     from ..utils.logger import logger
+
     logger.error('Error: {}'.format(e))
 
 
@@ -19,24 +19,17 @@ class Server:
         self.port = port
         self.workers = workers
 
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
         self.loop = asyncio.get_event_loop()
         self.worker = Worker(workers)
 
+        self.server = None
+
     async def _start(self):
-        self.socket.bind((self.host, self.port))
-        self.socket.listen(512)
-        self.socket.setblocking(False)
-
         logger.info(f'Listening on {self.host}:{self.port}')
+        self.server = await asyncio.start_server(self._handle, self.host, self.port)
 
-        while True:
-            client, addr = await self.loop.sock_accept(self.socket)
-            client.setblocking(False)
-
-            await self.worker.queue.put((client, addr))
+    async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        await self.worker.queue.put((reader, writer))
 
     def start(self):
         try:
@@ -48,6 +41,10 @@ class Server:
 
         finally:
             logger.info('Closing server')
-
-            self.socket.close()
             self.worker.stop()
+
+            if self.server:
+                self.server.close()
+
+            self.loop.run_until_complete(self.server.wait_closed())
+            self.loop.close()

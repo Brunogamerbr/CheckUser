@@ -1,6 +1,6 @@
 import typing as t
 import os
-import subprocess
+import asyncio
 
 from datetime import datetime
 from .ovpn import OpenVPNManager
@@ -10,58 +10,58 @@ from .ssh import SSHManager
 class CheckerUserManager:
     def __init__(self, username: str):
         self.username = username
-        self.ssh_manager = SSHManager()
+        self.ssh_manager = SSHManager(username)
         self.openvpn_manager = OpenVPNManager()
 
-    def get_expiration_date(self) -> t.Optional[str]:
-        try:
-            chage = subprocess.Popen(
-                ('chage', '-l', self.username),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            grep = subprocess.Popen(
-                ('grep', 'Account expires'),
-                stdin=chage.stdout,
-                stdout=subprocess.PIPE
-            )
-            cut = subprocess.Popen(
-                'cut -d : -f2'.split(),
-                stdin=grep.stdout,
-                stdout=subprocess.PIPE
-            )
-            output = cut.communicate()[0].strip().decode()
+    async def get_expiration_date(self) -> t.Optional[str]:
+        command = 'chage -l %s' % self.username
+        result = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
 
-            if not output or output == 'never':
-                return None
+        stdout, stderr = await result.communicate()
+        return (
+            stdout.decode().split('Account expires: ')[1].split()[0].strip()
+            if not stderr.decode()
+            else None
+        )
 
-            return datetime.strptime(output, '%b %d, %Y').strftime('%d/%m/%Y')
-
-        except subprocess.CalledProcessError as e:
-            return None
-
-    def get_expiration_days(self, date: str) -> int:
+    async def get_expiration_days(self, date: str) -> int:
         if not isinstance(date, str) or date.lower() == 'never':
             return -1
 
-        return (datetime.strptime(date, '%d/%m/%Y') - datetime.now()).days
+        return (datetime.strptime(date, '%b %d, %Y') - datetime.now()).days
 
-    def get_connections(self) -> int:
+    async def get_connections(self) -> int:
         count = 0
 
-        if self.openvpn_manager.openvpn_is_running():
-            count += self.openvpn_manager.count_connection_from_manager(
-                self.username)
+        if await self.openvpn_manager.openvpn_is_running():
+            # await self.openvpn_manager.start_manager()
+            count += await self.openvpn_manager.count_connections(self.username)
 
-        count += self.ssh_manager.count_connections(self.username)
+        await self.ssh_manager.get_pids()
+
+        count += self.ssh_manager.total_connections
         return count
 
-    def get_time_online(self) -> t.Optional[str]:
-        command = 'ps -u %s -o etime --no-headers 2>/dev/null' % self.username
-        result = os.popen(command).readlines()
-        return result[0].strip() if result else None
+    async def get_time_online(self) -> t.Optional[str]:
+        command = 'ps -u %s -o etime --no-headers' % self.username
+        result = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
 
-    def get_limiter_connection(self) -> int:
+        stdout, stderr = await result.communicate()
+
+        if stderr:
+            return None
+
+        return stdout.decode().strip().split()[0] if stdout else None
+
+    async def get_limiter_connection(self) -> int:
         path = '/root/usuarios.db'
         limit_connections = -1
 
@@ -72,47 +72,64 @@ class CheckerUserManager:
                         split = line.strip().split()
                         if len(split) == 2 and split[0] == self.username:
                             limit_connections = int(split[1])
-                            break
+                            return limit_connections
 
-            if os.system('command -v vps-cli') == 0:
-                data = os.popen('vps-cli -u %s -s' %
-                                self.username).read().strip()
+            process = await asyncio.create_subprocess_shell(
+                'command -v vps-cli',
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
 
-                if data != 'User not found':
-                    limit_connections = int(
-                        data.split('Limit connections:')
-                        [1].split()[0].strip()
-                    )
+            stdout, stderr = await process.communicate()
+
+            if stderr.decode():
+                return limit_connections
+
+            process = await asyncio.create_subprocess_shell(
+                'vps-cli -u %s -s' % self.username,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout, stderr = await process.communicate()
+
+            if stderr.decode():
+                return limit_connections
+
+            data = stdout.decode().strip()
+            if data != 'User not found':
+                limit_connections = int(data.split('Limit connections:')[1].split()[0].strip())
+
         finally:
             return limit_connections
 
-    def kill_connection(self) -> None:
-        self.ssh_manager.kill_connection(self.username)
-        self.openvpn_manager.kill_connection(self.username)
+    async def kill_connection(self) -> None:
+        await self.ssh_manager.kill_connection(self.username)
+        await self.openvpn_manager.kill_connection(self.username)
 
     @staticmethod
-    def count_all_connections() -> int:
+    async def count_all_connections() -> int:
         ssh_manager = SSHManager()
         openvpn_manager = OpenVPNManager()
 
         count = 0
 
-        if openvpn_manager.openvpn_is_running():
-            count += openvpn_manager.count_all_connections()
+        if await openvpn_manager.openvpn_is_running():
+            count += await openvpn_manager.count_all_connections()
 
-        count += ssh_manager.count_all_connections()
+        count += await ssh_manager.count_all_connections()
         return count
 
 
-def check_user(username: str) -> t.Dict[str, t.Any]:
+async def check_user(username: str) -> t.Dict[str, t.Any]:
     try:
         checker = CheckerUserManager(username)
 
-        count = checker.get_connections()
-        expiration_date = checker.get_expiration_date()
-        expiration_days = checker.get_expiration_days(expiration_date)
-        limit_connection = checker.get_limiter_connection()
-        time_online = checker.get_time_online()
+        count = await checker.get_connections()
+        expiration_date = await checker.get_expiration_date()
+        expiration_days = await checker.get_expiration_days(expiration_date)
+        limit_connection = await checker.get_limiter_connection()
+        time_online = await checker.get_time_online()
 
         return {
             'username': username,
@@ -126,7 +143,7 @@ def check_user(username: str) -> t.Dict[str, t.Any]:
         return {'error': str(e)}
 
 
-def kill_user(username: str) -> dict:
+async def kill_user(username: str) -> dict:
     result = {
         'success': True,
         'error': None,
@@ -134,7 +151,7 @@ def kill_user(username: str) -> dict:
 
     try:
         checker = CheckerUserManager(username)
-        checker.kill_connection()
+        await checker.kill_connection()
         return result
     except Exception as e:
         result['success'] = False
@@ -142,14 +159,14 @@ def kill_user(username: str) -> dict:
         return result
 
 
-def count_all_connections() -> dict:
+async def count_all_connections() -> dict:
     result = {
         'count': 0,
         'success': True,
     }
 
     try:
-        result['count'] = CheckerUserManager.count_all_connections()
+        result['count'] = await CheckerUserManager.count_all_connections()
     except Exception as e:
         result['success'] = False
         result['error'] = str(e)
