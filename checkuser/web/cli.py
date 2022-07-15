@@ -16,6 +16,12 @@ base_cli.add_argument(
 )
 
 base_cli.add_argument(
+    '--status',
+    action='store_true',
+    help='Show server status',
+)
+
+base_cli.add_argument(
     '--server-host',
     default='0.0.0.0',
     help='Server host',
@@ -64,3 +70,10 @@ def args_handler(args):
 
     if args.stop:
         daemon.stop()
+
+    if args.status:
+        if daemon.is_running():
+            process_id = daemon.get_pid()
+            print('Server is running with PID {}'.format(process_id))
+        else:
+            print('Server is not running')
