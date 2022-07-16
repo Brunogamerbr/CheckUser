@@ -34,8 +34,8 @@ base_cli.add_argument(
 )
 
 base_cli.add_argument(
-    '--server-num-workers',
-    default=5,
+    '--workers',
+    default=512,
     type=int,
     help='Server number of workers (default: %(default)s)',
 )
@@ -53,7 +53,7 @@ def args_handler(args):
             server = Server(
                 host=args.server_host,
                 port=args.server_port,
-                workers=args.server_num_workers,
+                workers=args.workers,
             )
             server.start()
 
