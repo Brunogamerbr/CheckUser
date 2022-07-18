@@ -1,4 +1,4 @@
-from ..utils import base_cli, Config
+from ..utils import base_cli
 from ..utils.daemon import Daemon
 
 from ..web import Server
@@ -14,7 +14,11 @@ base_cli.add_argument(
     action='store_true',
     help='Stop server',
 )
-
+base_cli.add_argument(
+    '--restart',
+    action='store_true',
+    help='Restart server',
+)
 base_cli.add_argument(
     '--status',
     action='store_true',
@@ -22,20 +26,21 @@ base_cli.add_argument(
 )
 
 base_cli.add_argument(
-    '--server-host',
+    '--host',
     default='0.0.0.0',
     help='Server host',
 )
 
 base_cli.add_argument(
-    '--server-port',
+    '--port',
     type=int,
+    default=5000,
     help='Server port',
 )
 
 base_cli.add_argument(
     '--workers',
-    default=512,
+    default=32,
     type=int,
     help='Server number of workers (default: %(default)s)',
 )
@@ -51,8 +56,8 @@ def args_handler(args):
     class ServerDaemon(Daemon):
         def run(self):
             server = Server(
-                host=args.server_host,
-                port=args.server_port,
+                host=args.host,
+                port=args.port,
                 workers=args.workers,
             )
             server.start()
@@ -60,9 +65,6 @@ def args_handler(args):
     daemon = ServerDaemon(pidfile='/tmp/server.pid')
 
     if args.start:
-        if args.server_port is None:
-            args.server_port = Config().port
-
         if args.daemon:
             daemon.start()
         else:
@@ -70,6 +72,9 @@ def args_handler(args):
 
     if args.stop:
         daemon.stop()
+
+    if args.restart:
+        daemon.restart()
 
     if args.status:
         if daemon.is_running():

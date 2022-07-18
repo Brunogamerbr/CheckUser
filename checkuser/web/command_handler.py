@@ -1,9 +1,6 @@
-import asyncio
-
 from checkuser.utils import logger
 
 from ..checker import check_user, kill_user, count_all_connections
-from ..utils.config import Config
 
 
 class Command:
@@ -20,12 +17,6 @@ class CheckUserCommand(Command):
 
     async def execute(self) -> dict:
         data = await check_user(self.content)
-
-        for exclude in Config().exclude:
-            if exclude in data:
-                logger.debug(f'Exclude: {exclude}')
-                del data[exclude]
-
         return data
 
 

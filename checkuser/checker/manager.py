@@ -53,9 +53,7 @@ class CheckerUserManager:
     async def get_connections(self) -> int:
         count = 0
 
-        if await self.openvpn_manager.openvpn_is_running():
-            count += await self.openvpn_manager.count_connections(self.username)
-
+        count += await self.openvpn_manager.count_connections(self.username)
         count += await self.ssh_manager.count_connections(self.username)
 
         return count
@@ -127,11 +125,9 @@ class CheckerUserManager:
         openvpn_manager = OpenVPNManager()
 
         count = 0
-
-        if await openvpn_manager.openvpn_is_running():
-            count += await openvpn_manager.count_all_connections()
-
+        count += await openvpn_manager.count_all_connections()
         count += await ssh_manager.count_all_connections()
+
         return count
 
 

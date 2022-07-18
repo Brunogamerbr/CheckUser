@@ -27,12 +27,12 @@ class Worker:
             try:
                 await self.handle(reader, writer)
             except Exception as e:
-                logger.error(e)
+                logger.exception('Error: {}'.format(e))
 
             writer.close()
 
     async def handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        data = await reader.read(1024)
+        data = await asyncio.wait_for(reader.read(1024), timeout=5)
 
         parser = HttpParser.of(data.decode('utf-8'))
         response = json.dumps(
@@ -47,6 +47,7 @@ class Worker:
         if not data or not parser.path:
             writer.write(response.encode('utf-8'))
             await writer.drain()
+            return
 
         split = parser.path.split('/')
 

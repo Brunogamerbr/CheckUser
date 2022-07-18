@@ -31,7 +31,7 @@ function install_checkuser() {
 
     clear
     read -p 'Porta: ' -e -i 5000 port
-    checkuser --config-port $port --start --daemon
+    checkuser --port $port --start --daemon
 
     echo 'CheckUser instalado com sucesso.'
     echo 'Execute: checkuser --help'

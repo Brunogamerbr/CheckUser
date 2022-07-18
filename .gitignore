@@ -9,7 +9,7 @@ db.sqlite3
 .env
 alembic.ini
 migrations/versions/*
-
+client_test.py
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

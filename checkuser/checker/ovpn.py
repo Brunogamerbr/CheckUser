@@ -9,32 +9,6 @@ class OpenVPNManager:
         self.config_path = '/etc/openvpn/'
         self.config_file = 'server.conf'
 
-    @staticmethod
-    async def openvpn_is_running() -> bool:
-        status = OpenVPNManager.openvpn_is_installed()
-
-        if status:
-            command = 'service openvpn status'
-            process = await asyncio.create_subprocess_shell(
-                command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-
-            stdout, stderr = await process.communicate()
-
-            if stderr.decode():
-                return False
-
-            data = stdout.decode().strip()
-            status = data.find('Active: active') > -1
-
-        return status
-
-    @staticmethod
-    def openvpn_is_installed() -> bool:
-        return os.path.exists('/etc/openvpn/') and os.path.exists('/etc/openvpn/server.conf')
-
     @property
     def config(self) -> str:
         return os.path.join(self.config_path, self.config_file)

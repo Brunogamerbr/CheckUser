@@ -4,6 +4,11 @@ import asyncio
 from .async_worker import Worker
 from ..utils import logger
 
+try:
+    __import__('uvloop').install()
+except ImportError:
+    pass
+
 
 try:
     resource.setrlimit(resource.RLIMIT_NOFILE, (65536, 65536))
