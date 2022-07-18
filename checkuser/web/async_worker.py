@@ -26,10 +26,11 @@ class Worker:
 
             try:
                 await self.handle(reader, writer)
+                writer.close()
             except Exception as e:
                 logger.exception('Error: {}'.format(e))
 
-            writer.close()
+            self.queue.task_done()
 
     async def handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         data = await asyncio.wait_for(reader.read(1024), timeout=5)
@@ -71,9 +72,6 @@ class Worker:
 
         writer.write(response.encode('utf-8'))
         await writer.drain()
-
-    async def put(self, item: Tuple[socket.socket, Tuple[str, int]]):
-        await self.queue.put(item)
 
     async def start(self):
         for _ in range(self.concurrency):

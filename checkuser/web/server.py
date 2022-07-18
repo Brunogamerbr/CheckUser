@@ -11,7 +11,8 @@ except ImportError:
 
 
 try:
-    resource.setrlimit(resource.RLIMIT_NOFILE, (65536, 65536))
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
 except Exception as e:
     from ..utils.logger import logger
 
