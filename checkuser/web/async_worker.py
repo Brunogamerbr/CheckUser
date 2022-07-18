@@ -11,11 +11,11 @@ from ..utils.logger import logger
 
 
 class Worker:
-    def __init__(self, concurrency: int = 5) -> None:
+    def __init__(self, concurrency: int = 5, loop: asyncio.AbstractEventLoop = None):
         self.concurrency = concurrency
         self.tasks = []
 
-        self.loop = asyncio.get_event_loop()
+        self.loop = loop or asyncio.get_event_loop()
         self.queue = asyncio.Queue()
 
         self.command_handler = CommandHandler()

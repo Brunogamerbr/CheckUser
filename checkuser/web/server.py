@@ -26,16 +26,16 @@ class Server:
         self.workers = workers
 
         self.loop = asyncio.get_event_loop()
-        self.worker = Worker(workers)
+        self.worker = Worker(concurrency=workers, loop=self.loop)
 
         self.server = None
 
-    async def _start(self):
-        logger.info(f'Listening on {self.host}:{self.port}')
-        self.server = await asyncio.start_server(self._handle, self.host, self.port)
-
     async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         await self.worker.queue.put((reader, writer))
+
+    async def _start(self):
+        self.server = await asyncio.start_server(self._handle, self.host, self.port)
+        logger.info('Listening on {}:{}'.format(self.host, self.port))
 
     def start(self):
         try:
