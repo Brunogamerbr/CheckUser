@@ -34,10 +34,43 @@ class CheckerUser(Command):
             return {'error': str(e)}
 
 
+class KillUser(Command):
+    def __init__(self, content: str) -> None:
+        if not content:
+            raise ValueError('User name is required')
+
+        self.ssh_checker = SSHChecker(content)
+        self.ovpn_checker = OVPNChecker(content)
+
+    async def execute(self) -> dict:
+        try:
+            await self.ssh_checker.stop_connections()
+            await self.ovpn_checker.stop_connections()
+            return {'success': True}
+        except Exception as e:
+            return {'error': str(e)}
+
+
+class AllConnections(Command):
+    def __init__(self, *_) -> None:
+        pass
+
+    async def execute(self) -> dict:
+        try:
+            return {
+                'count': (await SSHChecker.count_all_connections())
+                + (await OVPNChecker.count_all_connections())
+            }
+        except Exception as e:
+            return {'error': str(e)}
+
+
 class CommandFactory:
     def __init__(self) -> None:
         self.commands = {
             'check': CheckerUser,
+            'kill': KillUser,
+            'all_connections': AllConnections,
         }
 
     async def handle(self, command: str, content: str) -> dict:

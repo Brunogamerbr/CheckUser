@@ -4,6 +4,11 @@ import re
 import os
 
 
+async def get_all_users() -> list:
+    with open('/etc/passwd') as f:
+        return [line.split(':')[0] for line in f.readlines() if int(line.split(':')[2]) >= 1000]
+
+
 class SSHChecker:
     def __init__(self, username: str) -> None:
         self.username = username
@@ -60,6 +65,22 @@ class SSHChecker:
         stdout, stderr = await proc.communicate()
         return int(stdout.decode().strip()) if not stderr else 0
 
+    async def stop_connections(self) -> None:
+        cmd = 'pkill -9 -u ' + self.username
+        proc = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        await proc.communicate()
+
+    @staticmethod
+    async def count_all_connections() -> int:
+        all_users = await get_all_users()
+        tasks = [asyncio.ensure_future(SSHChecker(user).count_connections()) for user in all_users]
+        return sum(await asyncio.gather(*tasks))
+
 
 class OVPNChecker:
     def __init__(self, username: str) -> None:
@@ -87,3 +108,20 @@ class OVPNChecker:
             return count // 2 if count > 0 else 0
         except:
             return 0
+
+    async def stop_connections(self) -> None:
+        try:
+            _, writer = await asyncio.open_connection(self.hostname, self.port)
+
+            writer.write(b'kill ' + self.username.encode() + b'\n')
+            await writer.drain()
+
+            writer.close()
+        except:
+            pass
+
+    @staticmethod
+    async def count_all_connections() -> int:
+        all_users = await get_all_users()
+        tasks = [asyncio.ensure_future(OVPNChecker(user).count_connections()) for user in all_users]
+        return sum(await asyncio.gather(*tasks))
