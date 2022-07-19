@@ -59,7 +59,8 @@ class AllConnections(Command):
         try:
             return {
                 'count': (await SSHChecker.count_all_connections())
-                + (await OVPNChecker.count_all_connections())
+                + (await OVPNChecker.count_all_connections()),
+                'success': True,
             }
         except Exception as e:
             return {'error': str(e)}
