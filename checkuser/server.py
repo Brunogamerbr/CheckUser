@@ -1,8 +1,8 @@
 import resource
 import asyncio
 
-from .async_worker import Worker
-from ..utils import logger
+from .worker import Worker
+from . import logger
 
 try:
     __import__('uvloop').install()
@@ -14,7 +14,7 @@ try:
     soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
     resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
 except Exception as e:
-    from ..utils.logger import logger
+    from . import logger
 
     logger.error('Error: {}'.format(e))
 

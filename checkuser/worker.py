@@ -1,10 +1,53 @@
 import asyncio
 import json
 
+from . import logger
 from .utils import HttpParser
-from .command_handler import CommandHandler
+from .checker import SSHChecker, OVPNChecker
 
-from ..utils.logger import logger
+
+class Command:
+    async def execute(self) -> dict:
+        raise NotImplementedError('This method must be implemented')
+
+
+class CheckerUser(Command):
+    def __init__(self, content: str) -> None:
+        if not content:
+            raise ValueError('User name is required')
+
+        self.content = content
+        self.ssh_checker = SSHChecker(content)
+        self.ovpn_checker = OVPNChecker(content)
+
+    async def execute(self) -> dict:
+        try:
+            return {
+                'username': self.content,
+                'count_connection': (await self.ssh_checker.count_connections())
+                + (await self.ovpn_checker.count_connections()),
+                'limit_connection': await self.ssh_checker.limit_connections(),
+                'expiration_date': await self.ssh_checker.expiration_date(),
+                'expiration_days': await self.ssh_checker.expiration_days(),
+            }
+        except Exception as e:
+            return {'error': str(e)}
+
+
+class CommandFactory:
+    def __init__(self) -> None:
+        self.commands = {
+            'check': CheckerUser,
+        }
+
+    async def handle(self, command: str, content: str) -> dict:
+        try:
+            command_class = self.commands[command]
+            command = command_class(content)
+
+            return await command.execute()
+        except KeyError:
+            raise ValueError('Unknown command')
 
 
 class Worker:
@@ -15,7 +58,7 @@ class Worker:
         self.loop = loop or asyncio.get_event_loop()
         self.queue = asyncio.Queue()
 
-        self.command_handler = CommandHandler()
+        self.command_handler = CommandFactory()
 
     async def _worker(self):
         while True:
