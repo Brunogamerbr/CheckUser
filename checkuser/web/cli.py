@@ -1,6 +1,8 @@
+import time
+import threading
+
 from ..utils import base_cli
 from ..utils.daemon import Daemon
-
 from ..web import Server
 
 base_cli.add_argument(
@@ -52,6 +54,26 @@ base_cli.add_argument(
 )
 
 
+class Restart:
+    def __init__(self, server) -> None:
+        self._server = server
+        self._interval = 10
+        self._thread = None
+
+    def start(self) -> None:
+        if self._thread and self._thread.is_alive():
+            raise RuntimeError('Restart thread already running')
+
+        self._thread = threading.Thread(target=self._run)
+        self._thread.daemon = True
+        self._thread.start()
+
+    def _run(self) -> None:
+        while True:
+            time.sleep(self._interval)
+            self._server.restart()
+
+
 def args_handler(args):
     class ServerDaemon(Daemon):
         def run(self):
@@ -65,6 +87,9 @@ def args_handler(args):
     daemon = ServerDaemon(pidfile='/tmp/server.pid')
 
     if args.start:
+        restart = Restart(server=daemon)
+        restart.start()
+
         if args.daemon:
             daemon.start()
         else:

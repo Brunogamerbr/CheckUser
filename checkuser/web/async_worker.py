@@ -1,8 +1,5 @@
 import asyncio
-import socket
 import json
-
-from typing import Tuple
 
 from .utils import HttpParser
 from .command_handler import CommandHandler
