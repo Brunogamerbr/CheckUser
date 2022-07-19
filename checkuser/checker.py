@@ -34,7 +34,7 @@ class SSHChecker:
 
         try:
             today = dt.datetime.now()
-            return (dt.datetime.strptime(date, '%b %d, %Y') - today).days
+            return (dt.datetime.strptime(date, '%d/%m/%Y') - today).days
         except ValueError:
             return -1
 
