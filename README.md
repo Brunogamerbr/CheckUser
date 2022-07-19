@@ -15,7 +15,7 @@ checkuser --config-port 5000 --start --daemon
 
 ### Ou
 ```
-curl -sL https://raw.githubusercontent.com/DuTra01/CheckUser/master/install.sh > install.sh; chmod a+x install.sh; ./install.sh
+bash <(curl -sL https://raw.githubusercontent.com/DuTra01/CheckUser/master/install.sh)
 ```
  *Opcao 1*
 
@@ -26,7 +26,7 @@ python3 -m pip install --upgrade git+https://github.com/DuTra01/CheckUser.git
 
 ### Ou
 ```
-curl -sL https://raw.githubusercontent.com/DuTra01/CheckUser/master/install.sh > install.sh; chmod a+x install.sh; ./install.sh
+bash <(curl -sL https://raw.githubusercontent.com/DuTra01/CheckUser/master/install.sh)
 ```
  *Opcao 2*
 
