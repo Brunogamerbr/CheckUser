@@ -1,5 +1,5 @@
 import asyncio
-import datetime
+import datetime as dt
 import re
 import os
 
@@ -22,7 +22,8 @@ class SSHChecker:
 
         pattern = re.compile(r'Account expires\s+:\s+(.*)|Conta expira\s+:\s+(.*)')
         match = pattern.search(stdout.decode('utf-8'))
-        return match.group(1) or match.group(2)
+        date = match.group(1) or match.group(2)
+        return dt.datetime.strptime(date, '%b %d, %Y').strftime('%d/%m/%Y') if date else 'never'
 
     async def expiration_days(self, date: str = None) -> int:
         if not date:
@@ -32,8 +33,8 @@ class SSHChecker:
             return -1
 
         try:
-            today = datetime.datetime.now()
-            return (datetime.datetime.strptime(date, '%b %d, %Y') - today).days
+            today = dt.datetime.now()
+            return (dt.datetime.strptime(date, '%b %d, %Y') - today).days
         except ValueError:
             return -1
 
