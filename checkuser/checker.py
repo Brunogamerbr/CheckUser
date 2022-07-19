@@ -28,7 +28,11 @@ class SSHChecker:
         pattern = re.compile(r'Account expires\s+:\s+(.*)|Conta expira\s+:\s+(.*)')
         match = pattern.search(stdout.decode('utf-8'))
         date = match.group(1) or match.group(2)
-        return dt.datetime.strptime(date, '%b %d, %Y').strftime('%d/%m/%Y') if date else 'never'
+        return (
+            dt.datetime.strptime(date, '%b %d, %Y').strftime('%d/%m/%Y')
+            if date and date != 'never'
+            else 'never'
+        )
 
     async def expiration_days(self, date: str = None) -> int:
         if not date:
