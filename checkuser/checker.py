@@ -1,10 +1,11 @@
-import asyncio
+import socket
+import subprocess
 import datetime as dt
 import re
 import os
 
 
-async def get_all_users() -> list:
+def get_all_users() -> list:
     with open('/etc/passwd') as f:
         return [line.split(':')[0] for line in f.readlines() if int(line.split(':')[2]) >= 1000]
 
@@ -13,15 +14,10 @@ class SSHChecker:
     def __init__(self, username: str) -> None:
         self.username = username
 
-    async def expiration_date(self) -> str:
+    def expiration_date(self) -> str:
         cmd = 'chage -l ' + self.username
-        proc = await asyncio.create_subprocess_shell(
-            cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-        stdout, stderr = await proc.communicate()
+        proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = proc.communicate()
         if stderr:
             return 'never'
 
@@ -34,9 +30,9 @@ class SSHChecker:
             else 'never'
         )
 
-    async def expiration_days(self, date: str = None) -> int:
+    def expiration_days(self, date: str = None) -> int:
         if not date:
-            date = await self.expiration_date()
+            date = self.expiration_date()
 
         if date == 'never':
             return -1
@@ -47,7 +43,7 @@ class SSHChecker:
         except ValueError:
             return -1
 
-    async def limit_connections(self) -> int:
+    def limit_connections(self) -> int:
         file_with_limit = '/root/usuarios.db'
 
         if not os.path.exists(file_with_limit):
@@ -58,32 +54,31 @@ class SSHChecker:
         match = pattern.search(data)
         return int(match.group(1)) if match else -1
 
-    async def count_connections(self) -> int:
+    def count_connections(self) -> int:
         cmd = 'ps -u ' + self.username + ' | grep sshd | wc -l'
-        proc = await asyncio.create_subprocess_shell(
-            cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        proc = subprocess.Popen(
+            cmd.split(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
 
-        stdout, stderr = await proc.communicate()
+        stdout, stderr = proc.communicate()
         return int(stdout.decode().strip()) if not stderr else 0
 
-    async def stop_connections(self) -> None:
+    def stop_connections(self) -> None:
         cmd = 'pkill -9 -u ' + self.username
-        proc = await asyncio.create_subprocess_shell(
-            cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        proc = subprocess.Popen(
+            cmd.split(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
-
-        await proc.communicate()
+        proc.communicate()
 
     @staticmethod
-    async def count_all_connections() -> int:
-        all_users = await get_all_users()
-        tasks = [asyncio.ensure_future(SSHChecker(user).count_connections()) for user in all_users]
-        return sum(await asyncio.gather(*tasks))
+    def count_all_connections() -> int:
+        all_users = get_all_users()
+        tasks = [SSHChecker(user).count_connections() for user in all_users]
+        return sum(tasks)
 
 
 class OVPNChecker:
@@ -92,40 +87,35 @@ class OVPNChecker:
         self.hostname = '127.0.0.1'
         self.port = 7505
 
-    async def count_connections(self) -> int:
+    def count_connections(self) -> int:
         try:
-            reader, writer = await asyncio.open_connection(self.hostname, self.port)
-
-            writer.write(b'status\n')
-            await writer.drain()
+            soc = socket.create_connection((self.hostname, self.port), timeout=5)
+            soc.send(b'status\n')
 
             buffer = b''
             while True:
-                data = await reader.read(1024)
+                data = soc.recv(1024)
                 buffer += data
 
                 if b'\r\nEND\r\n' in data or not data:
                     break
 
-            writer.close()
+            soc.close()
             count = buffer.count(self.username.encode())
             return count // 2 if count > 0 else 0
         except:
             return 0
 
-    async def stop_connections(self) -> None:
+    def stop_connections(self) -> None:
         try:
-            _, writer = await asyncio.open_connection(self.hostname, self.port)
-
-            writer.write(b'kill ' + self.username.encode() + b'\n')
-            await writer.drain()
-
-            writer.close()
+            soc = socket.create_connection((self.hostname, self.port), timeout=5)
+            soc.send(b'kill ' + self.username.encode() + b'\n')
+            soc.close()
         except:
             pass
 
     @staticmethod
-    async def count_all_connections() -> int:
-        all_users = await get_all_users()
-        tasks = [asyncio.ensure_future(OVPNChecker(user).count_connections()) for user in all_users]
-        return sum(await asyncio.gather(*tasks))
+    def count_all_connections() -> int:
+        all_users = get_all_users()
+        tasks = [OVPNChecker(user).count_connections() for user in all_users]
+        return sum(tasks)

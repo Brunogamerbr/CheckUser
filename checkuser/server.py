@@ -1,14 +1,9 @@
+import socket
 import resource
-import asyncio
+import typing as t
 
-from .worker import Worker
+from .worker import Handler
 from . import logger
-
-try:
-    __import__('uvloop').install()
-except ImportError:
-    pass
-
 
 try:
     soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
@@ -20,37 +15,39 @@ except Exception as e:
 
 
 class Server:
-    def __init__(self, host: str, port: int, workers: int = 10):
+    def __init__(self, host: str, port: int):
         self.host = host
         self.port = port
-        self.workers = workers
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.is_running = False
 
-        self.loop = asyncio.get_event_loop()
-        self.worker = Worker(concurrency=workers, loop=self.loop)
+    def handle(self, client: socket.socket, addr: t.Tuple[str, int]) -> None:
+        handler = Handler(client, addr)
+        handler.daemon = True
+        handler.start()
 
-        self.server = None
+    def start(self) -> None:
+        self.socket.bind((self.host, self.port))
+        self.socket.listen(0)
+        self.socket.settimeout(0.1)
+        self.is_running = True
 
-    async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        await self.worker.queue.put((reader, writer))
+        logger.info('Server started on %s:%d', self.host, self.port)
 
-    async def _start(self):
-        self.server = await asyncio.start_server(self._handle, self.host, self.port)
-        logger.info('Listening on {}:{}'.format(self.host, self.port))
+        while self.is_running:
+            try:
+                client, addr = self.socket.accept()
+                self.handle(client, addr)
+            except socket.timeout:
+                continue
+            except KeyboardInterrupt:
+                self.stop()
+                break
+            except Exception as e:
+                logger.exception('Error: {}'.format(e))
+                continue
 
-    def start(self):
-        try:
-            self.loop.create_task(self.worker.start())
-            self.loop.create_task(self._start())
-            self.loop.run_forever()
-        except KeyboardInterrupt:
-            pass
-
-        finally:
-            logger.info('Closing server')
-            self.worker.stop()
-
-            if self.server:
-                self.server.close()
-
-            self.loop.run_until_complete(self.server.wait_closed())
-            self.loop.close()
+    def stop(self) -> None:
+        self.is_running = False
+        self.socket.close()

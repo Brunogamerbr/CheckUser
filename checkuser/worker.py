@@ -1,5 +1,7 @@
-import asyncio
+import threading
+import socket
 import json
+import typing as t
 
 from . import logger
 from .utils import HttpParser
@@ -7,7 +9,7 @@ from .checker import SSHChecker, OVPNChecker
 
 
 class Command:
-    async def execute(self) -> dict:
+    def execute(self) -> dict:
         raise NotImplementedError('This method must be implemented')
 
 
@@ -20,15 +22,15 @@ class CheckerUser(Command):
         self.ssh_checker = SSHChecker(content)
         self.ovpn_checker = OVPNChecker(content)
 
-    async def execute(self) -> dict:
+    def execute(self) -> dict:
         try:
             return {
                 'username': self.content,
-                'count_connection': (await self.ssh_checker.count_connections())
-                + (await self.ovpn_checker.count_connections()),
-                'limit_connection': await self.ssh_checker.limit_connections(),
-                'expiration_date': await self.ssh_checker.expiration_date(),
-                'expiration_days': await self.ssh_checker.expiration_days(),
+                'count_connection': (self.ssh_checker.count_connections())
+                + (self.ovpn_checker.count_connections()),
+                'limit_connection': self.ssh_checker.limit_connections(),
+                'expiration_date': self.ssh_checker.expiration_date(),
+                'expiration_days': self.ssh_checker.expiration_days(),
             }
         except Exception as e:
             return {'error': str(e)}
@@ -42,10 +44,10 @@ class KillUser(Command):
         self.ssh_checker = SSHChecker(content)
         self.ovpn_checker = OVPNChecker(content)
 
-    async def execute(self) -> dict:
+    def execute(self) -> dict:
         try:
-            await self.ssh_checker.stop_connections()
-            await self.ovpn_checker.stop_connections()
+            self.ssh_checker.stop_connections()
+            self.ovpn_checker.stop_connections()
             return {'success': True}
         except Exception as e:
             return {'error': str(e)}
@@ -55,11 +57,11 @@ class AllConnections(Command):
     def __init__(self, *_) -> None:
         pass
 
-    async def execute(self) -> dict:
+    def execute(self) -> dict:
         try:
             return {
-                'count': (await SSHChecker.count_all_connections())
-                + (await OVPNChecker.count_all_connections()),
+                'count': (SSHChecker.count_all_connections())
+                + (OVPNChecker.count_all_connections()),
                 'success': True,
             }
         except Exception as e:
@@ -74,86 +76,65 @@ class CommandFactory:
             'all_connections': AllConnections,
         }
 
-    async def handle(self, command: str, content: str) -> dict:
+    def handle(self, command: str, content: str) -> dict:
         try:
             command_class = self.commands[command]
             command = command_class(content)
 
-            return await command.execute()
+            return command.execute()
         except KeyError:
             raise ValueError('Unknown command')
 
 
-class Worker:
-    def __init__(self, concurrency: int = 5, loop: asyncio.AbstractEventLoop = None):
-        self.concurrency = concurrency
-        self.tasks = []
-
-        self.loop = loop or asyncio.get_event_loop()
-        self.queue = asyncio.Queue()
-
+class Handler(threading.Thread):
+    def __init__(self, client: socket.socket, addr: t.Tuple[str, int]) -> None:
+        super(Handler, self).__init__()
+        self.client = client
+        self.addr = addr
         self.command_handler = CommandFactory()
 
-    async def _worker(self):
-        while True:
-            reader, writer = await self.queue.get()
-
-            try:
-                await self.handle(reader, writer)
-                writer.close()
-            except Exception as e:
-                logger.exception('Error: {}'.format(e))
-
-            self.queue.task_done()
-
-    async def handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        data = await asyncio.wait_for(reader.read(1024), timeout=5)
-
-        parser = HttpParser.of(data.decode('utf-8'))
-        response = json.dumps(
-            HttpParser.build_response(
-                status=403,
-                headers={'Content-Type': 'Application/json'},
-                body='{"error": "Forbidden"}',
-            ),
-            indent=4,
-        )
-
-        if not data or not parser.path:
-            writer.write(response.encode('utf-8'))
-            await writer.drain()
-            return
-
-        split = parser.path.split('/')
-
-        command = split[1]
-        content = split[2].split('?')[0] if len(split) > 2 else None
-
+    def handle(self, command: str, content: str) -> None:
         try:
-            response = await self.command_handler.handle(command, content)
+            response = self.command_handler.handle(command, content)
             response = json.dumps(response, indent=4)
             response = HttpParser.build_response(
                 status=200,
                 headers={'Content-Type': 'Application/json'},
                 body=response,
             )
+            self.client.send(response.encode('utf-8'))
         except Exception as e:
             response = HttpParser.build_response(
                 status=500,
                 headers={'Content-Type': 'Application/json'},
                 body=json.dumps({'error': str(e)}, indent=4),
             )
+            self.client.send(response.encode('utf-8'))
 
-        writer.write(response.encode('utf-8'))
-        await writer.drain()
+    def process(self) -> None:
+        data = self.client.recv(8192)
+        parser = HttpParser.of(data.decode('utf-8'))
 
-    async def start(self):
-        for _ in range(self.concurrency):
-            task = self.loop.create_task(self._worker())
-            self.tasks.append(task)
+        if not data or not parser.path:
+            self.client.send(
+                HttpParser.build_response(
+                    status=400,
+                    headers={'Content-Type': 'Application/json'},
+                    body=json.dumps({'error': 'Bad request'}, indent=4),
+                ).encode('utf-8')
+            )
+            return
 
-    def stop(self):
-        for task in self.tasks:
-            task.cancel()
+        split = parser.path.split('/')
+        command = split[1]
+        content = split[2].split('?')[0] if len(split) > 2 else None
 
-        self.loop.stop()
+        self.handle(command, content)
+
+    def run(self):
+        try:
+            self.process()
+        except Exception as e:
+            logger.exception('Error: {}'.format(e))
+
+        self.client.close()
