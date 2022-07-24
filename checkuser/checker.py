@@ -57,7 +57,7 @@ class SSHChecker:
             if stderr:
                 return -1
 
-            pattern = re.compile(r'Limit connections\s+:\s+(.*)')
+            pattern = re.compile(r'Limit connections:\s+(.*)')
             match = pattern.search(stdout.decode('utf-8'))
             return int(match.group(1)) if match else -1
 
