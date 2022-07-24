@@ -44,6 +44,23 @@ class SSHChecker:
             return -1
 
     def limit_connections(self) -> int:
+        cmd = 'command -v vps-cli > /dev/null 2>&1'
+
+        if os.system(cmd) == 0:
+            cmd = 'vps-cli -u %s -s' % self.username
+            proc = subprocess.Popen(
+                cmd.split(),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            stdout, stderr = proc.communicate()
+            if stderr:
+                return -1
+
+            pattern = re.compile(r'Limit connections\s+:\s+(.*)')
+            match = pattern.search(stdout.decode('utf-8'))
+            return int(match.group(1)) if match else -1
+
         file_with_limit = '/root/usuarios.db'
 
         if not os.path.exists(file_with_limit):
