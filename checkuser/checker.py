@@ -74,9 +74,10 @@ class SSHChecker:
     def count_connections(self) -> int:
         cmd = 'ps -u ' + self.username + ' | grep sshd | wc -l'
         proc = subprocess.Popen(
-            cmd.split(),
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            shell=True,
         )
 
         stdout, stderr = proc.communicate()
