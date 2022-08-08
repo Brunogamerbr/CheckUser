@@ -2,6 +2,11 @@
 
 *CheckUser* E um verificador de usuários.
 
+# PyPi Official
+```
+pip3 install CheckerUser
+```
+
 # Modo de instalação
 ```
 apt-get update && apt-get install git -y
