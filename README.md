@@ -3,6 +3,8 @@
 *CheckUser* E um verificador de usuários.
 
 # PyPi Official
+- [ ]["CheckUser"](https://pypi.org/project/CheckerUser/)
+
 ```
 pip3 install CheckerUser
 ```
